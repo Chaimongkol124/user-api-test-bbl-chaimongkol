@@ -118,10 +118,6 @@ mvn test
 
 ### Test ที่มี
 - **`UserApiApplicationTests`** — integration test ครอบคลุม CRUD ทุก endpoint + กรณี 404/400
-- **`UserSeedDataTest`** — ดึงข้อมูลอ้างอิงจาก `src/test/resources/reference-users.json`
-  (ข้อมูล jsonplaceholder ฉบับเต็ม) แล้วเทียบทีละฟิลด์กับผลลัพธ์ของ
-  `GET /users` และ `GET /users/{id}` รวมถึงตรวจว่า API คืนเฉพาะ 6 ฟิลด์ที่กำหนด
-  (ไม่หลุด `address`/`company`)
 
 > ข้อมูลตั้งต้นใน `users-seed.json` ถูกสร้างจากไฟล์ `user-data.json` ที่อัปโหลดมา
 > (เช่น website ของ user id=10 คือ `ambrose.net` ตามไฟล์จริง)
