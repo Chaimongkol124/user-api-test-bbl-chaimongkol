@@ -4,10 +4,8 @@ import com.example.userapi.exception.UserNotFoundException;
 import com.example.userapi.model.User;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -20,25 +18,24 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-
+@Slf4j
 @Service
 public class UserService {
 
-    private static final Logger log = LoggerFactory.getLogger(UserService.class);
     private static final String SEED_RESOURCE = "users-seed.json";
 
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .enable(SerializationFeature.INDENT_OUTPUT);
-
+    private final ObjectMapper objectMapper;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
     private final Path dataFile;
 
-    public UserService(@Value("${app.data-file:data/users.json}") String dataFilePath) {
+    public UserService(ObjectMapper objectMapper,
+                       @Value("${app.data-file:data/users.json}") String dataFilePath) {
+        this.objectMapper = objectMapper;
         this.dataFile = Path.of(dataFilePath);
     }
 
@@ -66,7 +63,9 @@ public class UserService {
     public List<User> getAllUsers() {
         lock.readLock().lock();
         try {
-            return readFromFile();
+            List<User> users = readFromFile();
+            log.debug("Fetched {} users", users.size());
+            return users;
         } finally {
             lock.readLock().unlock();
         }
@@ -75,8 +74,10 @@ public class UserService {
     public User getUserById(Long id) {
         lock.readLock().lock();
         try {
-            return findById(readFromFile(), id)
+            User user = findById(readFromFile(), id)
                     .orElseThrow(() -> new UserNotFoundException(id));
+            log.debug("Fetched user id={}", id);
+            return user;
         } finally {
             lock.readLock().unlock();
         }
@@ -89,6 +90,7 @@ public class UserService {
             user.setId(nextId(users));
             users.add(user);
             writeToFile(users);
+            log.info("Created user id={} username={}", user.getId(), user.getUsername());
             return user;
         } finally {
             lock.writeLock().unlock();
@@ -109,6 +111,7 @@ public class UserService {
             existing.setWebsite(updated.getWebsite());
 
             writeToFile(users);
+            log.info("Updated user id={}", id);
             return existing;
         } finally {
             lock.writeLock().unlock();
@@ -124,6 +127,7 @@ public class UserService {
                 throw new UserNotFoundException(id);
             }
             writeToFile(users);
+            log.info("Deleted user id={}", id);
         } finally {
             lock.writeLock().unlock();
         }
@@ -136,7 +140,7 @@ public class UserService {
     private long nextId(List<User> users) {
         return users.stream()
                 .map(User::getId)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .max(Comparator.naturalOrder())
                 .orElse(0L) + 1;
     }
@@ -150,7 +154,7 @@ public class UserService {
             if (bytes.length == 0) {
                 return new ArrayList<>();
             }
-            return objectMapper.readValue(bytes, new TypeReference<List<User>>() {});
+            return objectMapper.readValue(bytes, new TypeReference<>() {});
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read user data file", e);
         }
@@ -167,7 +171,7 @@ public class UserService {
     private List<User> readSeed() throws IOException {
         ClassPathResource resource = new ClassPathResource(SEED_RESOURCE);
         try (InputStream in = resource.getInputStream()) {
-            return objectMapper.readValue(in, new TypeReference<List<User>>() {});
+            return objectMapper.readValue(in, new TypeReference<>() {});
         }
     }
 }

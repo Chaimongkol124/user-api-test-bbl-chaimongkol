@@ -1,5 +1,6 @@
 package com.example.userapi.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,18 +12,17 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /** 404 - user id does not exist. */
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(
             UserNotFoundException ex, WebRequest request) {
+        log.warn("User not found: {}", ex.getMessage());
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
-    /** 400 - request body failed bean validation. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(
             MethodArgumentNotValidException ex, WebRequest request) {
@@ -31,15 +31,17 @@ public class GlobalExceptionHandler {
         ex.getBindingResult().getFieldErrors().forEach(error ->
                 fieldErrors.put(error.getField(), error.getDefaultMessage()));
 
+        log.warn("Validation failed on {}: {}", request.getDescription(false), fieldErrors);
+
         Map<String, Object> body = baseBody(HttpStatus.BAD_REQUEST, "Validation failed", request);
         body.put("errors", fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
-    /** 500 - any unexpected failure (e.g. file I/O). */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(
             Exception ex, WebRequest request) {
+        log.error("Unexpected error on {}", request.getDescription(false), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), request);
     }
 
